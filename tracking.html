@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Tracking</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        #status {
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h2 style="text-align: center;">Live Delivery Tracking</h2>
+    <div id="map"></div>
+    <div id="status">Tracking...</div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize the map
+            const map = L.map('map').setView([28.5830211, 77.3232352], 15); // Default center: Home address
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+            }).addTo(map);
+
+            // Define icons
+            const personIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png', // Person icon
+                iconSize: [40, 40],
+            });
+
+            const homeIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/1946/1946433.png', // Home icon
+                iconSize: [40, 40],
+            });
+
+            // Home location (destination)
+            let homeLocation = [28.5830211, 77.3232352]; // Home address coordinates
+            const homeMarker = L.marker(homeLocation, { icon: homeIcon }).addTo(map);
+
+            // Add "You are here" marker for the user
+            const personMarker = L.marker([0, 0], { icon: personIcon }).addTo(map);
+
+            // Add routing control placeholder
+            let routingControl;
+
+            // Function to update route between current location and home
+            const updateRoute = (currentLocation) => {
+                if (routingControl) {
+                    map.removeControl(routingControl); // Remove the old route
+                }
+                routingControl = L.Routing.control({
+                    waypoints: [L.latLng(currentLocation), L.latLng(homeLocation)],
+                    routeWhileDragging: false,
+                    createMarker: () => null, // No additional markers
+                }).addTo(map);
+            };
+
+            // Function to handle live position updates
+            const updatePosition = (position) => {
+                const { latitude, longitude } = position.coords;
+                const currentLocation = [latitude, longitude];
+
+                // Update the person marker position
+                personMarker.setLatLng(currentLocation);
+
+                // Center the map on the current location
+                map.setView(currentLocation, 15);
+
+                // Update the route
+                updateRoute(currentLocation);
+
+                // Calculate distance to the home location
+                const distance = map.distance(currentLocation, homeLocation);
+                const statusDiv = document.getElementById('status');
+
+                if (distance <= 100) {
+                    statusDiv.textContent = 'Reached Home!';
+                    statusDiv.style.color = 'green';
+                } else {
+                    statusDiv.textContent = `Distance to home: ${Math.round(distance)} meters`;
+                    statusDiv.style.color = 'black';
+                }
+            };
+
+            // Function to handle geolocation errors
+            const handleError = (error) => {
+                console.error(error);
+                alert('Unable to retrieve your location. Please ensure location services are enabled.');
+            };
+
+            // Watch the user's position
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(updatePosition, handleError, {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                });
+            } else {
+                alert('Geolocation is not supported by your browser.');
+            }
+
+            // Allow user to dynamically set the home location by clicking on the map
+            map.on('click', (e) => {
+                homeLocation = [e.latlng.lat, e.latlng.lng];
+                homeMarker.setLatLng(homeLocation); // Update the home marker position
+                alert('Home location updated!');
+            });
+        });
+    </script>
+</body>
+</html>
